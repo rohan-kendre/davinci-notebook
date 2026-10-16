@@ -2,9 +2,8 @@
 Plain HTML/CSS/JS ES modules, no npm, no build step. Run with: py -m http.server 8000 (Windows) or python3 -m http.server 8000 (Mac).
 Matter.js 0.19.0 is a global from https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js
 
-## File ownership (never edit the other person's files)
-Person A (Mac): index.html, js/app.js, js/capture.js, js/prompt.js, js/ai.js, js/scene.js, README.md
-Person B (Windows): CONTRACT.md, css/style.css, js/physics.js, js/render.js, js/gallery.js, js/view3d.js, assets/, test.html
+## File ownership
+All files are now built by a single developer on one laptop. Keep module interfaces and class names stable.
 
 ## World
 1000 x 625 px. Every sketch is letterboxed onto a white 1000x625 canvas, so AI pixel coordinates = world coordinates. Scale: 100 px = 1 m.

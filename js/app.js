@@ -1,4 +1,7 @@
 import { setupDrawPad, toSketch } from './capture.js';
+import { createSim } from './physics.js';
+import { createRenderer } from './render.js';
+import { PRESETS } from './gallery.js';
 
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 const toast = document.getElementById('toast');
@@ -29,6 +32,9 @@ export function setLoading(visible, message = 'Loading…') {
 }
 
 function selectTab(selectedTab) {
+  const liveTab = document.getElementById('tab-live');
+  const changed = !selectedTab.classList.contains('is-active');
+  if (selectedTab !== liveTab && liveTab.classList.contains('is-active')) disposeLive();
   if (selectedTab.id !== 'tab-draw') {
     stopCamera();
     uploadVersion += 1;
@@ -42,6 +48,11 @@ function selectTab(selectedTab) {
     panel.classList.toggle('is-active', active);
     panel.hidden = !active;
   }
+  if (selectedTab === liveTab && sim) {
+    renderer.draw();
+    startLoop();
+  }
+  if (changed) window.scrollTo(0, 0);
 }
 
 tabs.forEach((tab, index) => {
@@ -362,3 +373,188 @@ document.getElementById('draw-interpret').addEventListener('click', async () => 
     setLoading(false);
   }
 });
+
+const galleryGrid = document.getElementById('gallery-grid');
+const liveTab = document.getElementById('tab-live');
+const simCanvas = document.getElementById('sim-canvas');
+const liveContent = document.getElementById('live-content');
+const liveEmpty = document.getElementById('live-empty');
+const playPause = document.getElementById('sim-play-pause');
+const gravitySlider = document.getElementById('sim-gravity');
+const timeSlider = document.getElementById('sim-time-scale');
+const showSketch = document.getElementById('sim-show-sketch');
+const showLabels = document.getElementById('sim-show-labels');
+let sim = null;
+let renderer = null;
+let playing = false;
+let animationFrame = 0;
+let lastStatsUpdate = 0;
+let imageVersion = 0;
+
+function updateStats() {
+  const stats = sim?.getStats() || { distance: 0, peak: 0, topSpeed: 0 };
+  document.getElementById('stat-distance').textContent = stats.distance.toFixed(2);
+  document.getElementById('stat-peak').textContent = stats.peak.toFixed(2);
+  document.getElementById('stat-top-speed').textContent = stats.topSpeed.toFixed(2);
+}
+
+function stopLoop() {
+  if (animationFrame) cancelAnimationFrame(animationFrame);
+  animationFrame = 0;
+}
+
+function frame(now) {
+  animationFrame = 0;
+  if (!sim || !playing || !liveTab.classList.contains('is-active') || document.hidden) return;
+  sim.step();
+  renderer.draw();
+  if (now - lastStatsUpdate >= 200) {
+    updateStats();
+    lastStatsUpdate = now;
+  }
+  animationFrame = requestAnimationFrame(frame);
+}
+
+function startLoop() {
+  if (sim && playing && !animationFrame && liveTab.classList.contains('is-active') && !document.hidden) {
+    animationFrame = requestAnimationFrame(frame);
+  }
+}
+
+function disposeLive() {
+  stopLoop();
+  imageVersion += 1;
+  sim?.destroy();
+  sim = null;
+  renderer = null;
+  playing = false;
+  liveContent.hidden = true;
+  liveEmpty.hidden = false;
+  document.getElementById('live-title').textContent = 'Breathe life';
+  document.getElementById('note-text').textContent = '';
+  updateStats();
+}
+
+function loadPreset(preset) {
+  disposeLive();
+  gravitySlider.value = '1';
+  timeSlider.value = '1';
+  showSketch.checked = true;
+  showLabels.checked = false;
+  document.getElementById('sim-gravity-value').textContent = '1.00×';
+  document.getElementById('sim-time-value').textContent = '1.0×';
+
+  const image = new Image();
+  const version = ++imageVersion;
+  sim = createSim(preset.scene);
+  renderer = createRenderer(simCanvas, sim, {
+    sketchImage: image, showSketch: true, showLabels: false,
+  });
+  document.getElementById('live-title').textContent = preset.scene.title;
+  document.getElementById('note-text').textContent = preset.scene.note;
+  liveEmpty.hidden = true;
+  liveContent.hidden = false;
+  playPause.textContent = 'Pause';
+  playing = true;
+  lastStatsUpdate = 0;
+  updateStats();
+  selectTab(liveTab);
+  sim.attachMouse(simCanvas);
+  image.onload = () => {
+    if (version === imageVersion && renderer) renderer.draw();
+  };
+  image.onerror = () => {
+    if (version === imageVersion && renderer) renderer.set('sketchImage', null);
+  };
+  image.src = preset.image;
+}
+
+for (const preset of PRESETS) {
+  const card = document.createElement('article');
+  card.className = 'gallery-card paper';
+  card.tabIndex = 0;
+  card.setAttribute('aria-label', `${preset.title}. ${preset.blurb}`);
+
+  const thumb = document.createElement('div');
+  thumb.className = 'gallery-thumb';
+  const placeholder = document.createElement('span');
+  placeholder.className = 'gallery-placeholder';
+  placeholder.textContent = 'Drawing unavailable';
+  placeholder.hidden = true;
+  const image = document.createElement('img');
+  image.alt = `Leonardo drawing of ${preset.title.toLowerCase()}`;
+  image.loading = 'lazy';
+  image.onerror = () => {
+    image.hidden = true;
+    placeholder.hidden = false;
+  };
+  image.src = preset.image;
+  thumb.append(image, placeholder);
+
+  const meta = document.createElement('div');
+  meta.className = 'gallery-meta';
+  const source = document.createElement('p');
+  source.className = 'source';
+  source.textContent = preset.source;
+  const title = document.createElement('h3');
+  title.textContent = preset.title;
+  const blurb = document.createElement('p');
+  blurb.className = 'gallery-blurb';
+  blurb.textContent = preset.blurb;
+  const button = document.createElement('button');
+  button.className = 'gallery-link';
+  button.type = 'button';
+  button.textContent = 'Breathe life →';
+  meta.append(source, title, blurb, button);
+  card.append(thumb, meta);
+  card.addEventListener('click', () => loadPreset(preset));
+  card.addEventListener('keydown', (event) => {
+    if (event.target !== card || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    loadPreset(preset);
+  });
+  galleryGrid.append(card);
+}
+
+playPause.addEventListener('click', () => {
+  if (!sim) return;
+  playing = !playing;
+  playPause.textContent = playing ? 'Pause' : 'Play';
+  if (playing) startLoop();
+  else stopLoop();
+});
+document.getElementById('sim-reset').addEventListener('click', () => {
+  if (!sim) return;
+  sim.reset();
+  renderer.draw();
+  updateStats();
+});
+timeSlider.addEventListener('input', () => {
+  sim?.setTimeScale(Number(timeSlider.value));
+  document.getElementById('sim-time-value').textContent = `${Number(timeSlider.value).toFixed(1)}×`;
+});
+function setGravity(value) {
+  gravitySlider.value = String(value);
+  sim?.setGravity(value);
+  document.getElementById('sim-gravity-value').textContent = `${value.toFixed(2)}×`;
+}
+gravitySlider.addEventListener('input', () => setGravity(Number(gravitySlider.value)));
+document.querySelectorAll('[data-gravity]').forEach(chip => {
+  chip.addEventListener('click', () => setGravity(Number(chip.dataset.gravity)));
+});
+showSketch.addEventListener('change', () => {
+  renderer?.set('showSketch', showSketch.checked);
+  if (renderer && !playing) renderer.draw();
+});
+showLabels.addEventListener('change', () => {
+  renderer?.set('showLabels', showLabels.checked);
+  if (renderer && !playing) renderer.draw();
+});
+document.getElementById('live-back').addEventListener('click', () => {
+  selectTab(document.getElementById('tab-gallery'));
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopLoop();
+  else startLoop();
+});
+window.addEventListener('pagehide', disposeLive);

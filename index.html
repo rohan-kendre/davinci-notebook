@@ -15,21 +15,21 @@
 <body>
   <header class="app-header">
     <div>
-      <h1 class="brand">Da Vinci’s Notebook</h1>
-      <p class="tagline">Draw it. It works.</p>
+      <h1 class="brand">Da Vinci's Notebook</h1>
+      <p class="tagline">DRAW IT. IT WORKS.</p>
     </div>
     <button id="settings-open" class="btn btn-ghost" type="button" aria-haspopup="dialog" aria-controls="settings-modal">Settings</button>
   </header>
 
   <nav class="folio-tabs" role="tablist" aria-label="Notebook folios">
-    <button id="tab-draw" class="folio-tab is-active" type="button" role="tab" aria-controls="screen-draw" aria-selected="true" tabindex="0">I · Draw</button>
+    <button id="tab-draw" class="folio-tab" type="button" role="tab" aria-controls="screen-draw" aria-selected="false" tabindex="-1">I · Draw</button>
     <button id="tab-interpret" class="folio-tab" type="button" role="tab" aria-controls="screen-interpret" aria-selected="false" tabindex="-1">II · Interpret</button>
     <button id="tab-live" class="folio-tab" type="button" role="tab" aria-controls="screen-live" aria-selected="false" tabindex="-1">III · Breathe life</button>
-    <button id="tab-gallery" class="folio-tab" type="button" role="tab" aria-controls="screen-gallery" aria-selected="false" tabindex="-1">Leonardo’s Gallery</button>
+    <button id="tab-gallery" class="folio-tab is-active" type="button" role="tab" aria-controls="screen-gallery" aria-selected="true" tabindex="0">Leonardo's Gallery</button>
   </nav>
 
   <main>
-    <section id="screen-draw" class="screen is-active" role="tabpanel" aria-labelledby="tab-draw" tabindex="0">
+    <section id="screen-draw" class="screen" role="tabpanel" aria-labelledby="tab-draw" tabindex="0" hidden>
       <h2>Draw</h2>
       <div id="drawing-area" class="stage paper">
         <canvas id="draw-canvas" class="draw-pad" width="1000" height="625" aria-label="Sketch canvas">Your sketch will appear here.</canvas>
@@ -66,30 +66,64 @@
     </section>
 
     <section id="screen-live" class="screen" role="tabpanel" aria-labelledby="tab-live" tabindex="0" hidden>
-      <h2>Breathe life</h2>
-      <div class="stage paper" role="group" aria-label="Simulation canvas">
-        <canvas id="sim-canvas" width="1000" height="625"></canvas>
+      <div class="live-title-row">
+        <div>
+          <p class="section-kicker">III · BREATHE LIFE</p>
+          <h2 id="live-title">Breathe life</h2>
+        </div>
+        <p class="live-subtitle">· 500 years later, it moves.</p>
       </div>
-      <div class="controls" role="group" aria-label="Simulation controls">
-        <button id="sim-play-pause" class="btn btn-primary" type="button" data-unfinished>Play/Pause</button>
-        <button id="sim-reset" class="btn" type="button" data-unfinished>Reset</button>
-        <label for="sim-gravity">Gravity</label>
-        <input id="sim-gravity" class="slider" type="range" min="0" max="2" step="0.1" value="1">
-        <label for="sim-time-scale">Slow motion / time scale</label>
-        <input id="sim-time-scale" class="slider" type="range" min="0.1" max="1" step="0.1" value="1">
-        <label for="sim-show-sketch"><input id="sim-show-sketch" type="checkbox"> Show sketch</label>
+      <div id="live-empty" class="paper empty-state">Choose a machine from the gallery or draw your own.</div>
+      <div id="live-content" hidden>
+        <div class="live-layout">
+          <div class="live-main">
+            <div class="stage paper" role="group" aria-label="Simulation canvas">
+              <canvas id="sim-canvas" width="1000" height="625" aria-label="Animated machine simulation"></canvas>
+            </div>
+            <div class="controls paper" role="group" aria-label="Simulation controls">
+              <div class="transport-controls">
+                <button id="sim-play-pause" class="btn btn-primary" type="button">Pause</button>
+                <button id="sim-reset" class="btn btn-ghost" type="button">Reset</button>
+              </div>
+              <div class="control-field">
+                <label for="sim-time-scale">Slow motion <output id="sim-time-value" for="sim-time-scale">1.0×</output></label>
+                <input id="sim-time-scale" class="slider" type="range" min="0.2" max="1" step="0.1" value="1">
+              </div>
+              <div class="control-field">
+                <label for="sim-gravity">Gravity <output id="sim-gravity-value" for="sim-gravity">1.00×</output></label>
+                <input id="sim-gravity" class="slider" type="range" min="0" max="2" step="0.01" value="1">
+                <div class="chip-row">
+                  <button class="chip" type="button" data-gravity="0.17">Moon</button>
+                  <button class="chip" type="button" data-gravity="1">Earth</button>
+                </div>
+              </div>
+              <div class="display-toggles">
+                <label><input id="sim-show-sketch" type="checkbox" checked> Show drawing</label>
+                <label><input id="sim-show-labels" type="checkbox"> Labels</label>
+              </div>
+            </div>
+          </div>
+          <aside class="side-panel" aria-label="Simulation details">
+            <div class="stats paper" role="group" aria-label="Simulation statistics">
+              <h3>In motion</h3>
+              <div class="stat"><span class="stat-label">DISTANCE</span><span><span id="stat-distance" class="stat-value">0.00</span> m</span></div>
+              <div class="stat"><span class="stat-label">PEAK HEIGHT</span><span><span id="stat-peak" class="stat-value">0.00</span> m</span></div>
+              <div class="stat"><span class="stat-label">TOP SPEED</span><span><span id="stat-top-speed" class="stat-value">0.00</span> m/s</span></div>
+            </div>
+            <div id="leonardo-note" class="margin-note paper" aria-label="Leonardo's margin note" tabindex="0">
+              <h3>LEONARDO'S MARGIN NOTE · HOVER TO READ</h3>
+              <p id="note-text" class="mirror"></p>
+            </div>
+          </aside>
+        </div>
       </div>
-      <div class="stats" role="group" aria-label="Simulation statistics">
-        <div class="stat"><span class="stat-label">Distance</span> <span id="stat-distance" class="stat-value">—</span> m</div>
-        <div class="stat"><span class="stat-label">Peak height</span> <span id="stat-peak" class="stat-value">—</span> m</div>
-        <div class="stat"><span class="stat-label">Top speed</span> <span id="stat-top-speed" class="stat-value">—</span> m/s</div>
-      </div>
-      <button id="ask-leonardo" class="btn" type="button" data-unfinished>Ask Leonardo</button>
-      <aside id="leonardo-note" class="margin-note" aria-label="Leonardo’s margin note"></aside>
+      <button id="live-back" class="btn btn-ghost back-button" type="button">← Back to the gallery</button>
     </section>
 
-    <section id="screen-gallery" class="screen" role="tabpanel" aria-labelledby="tab-gallery" tabindex="0" hidden>
-      <h2>Leonardo’s Gallery</h2>
+    <section id="screen-gallery" class="screen is-active" role="tabpanel" aria-labelledby="tab-gallery" tabindex="0">
+      <p class="section-kicker">FROM THE NOTEBOOKS · c. 1478–1519</p>
+      <h2>Machines that waited 500 years</h2>
+      <p class="gallery-intro">Leonardo imagined them in ink. Choose a folio and watch its parts find motion.</p>
       <div id="gallery-grid" class="gallery-grid"></div>
     </section>
   </main>
