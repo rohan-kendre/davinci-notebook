@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=EB+Garamond:wght@400;500;600&family=IM+Fell+English:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
   <script src="js/app.js" type="module"></script>
 </head>
 <body>
@@ -114,8 +115,14 @@
       <div id="live-content" hidden>
         <div class="live-layout">
           <div class="live-main">
+            <div id="view-toggle" class="view-toggle" role="group" aria-label="Simulation view" hidden>
+              <button id="view-2d" class="chip is-active" type="button" aria-pressed="true">2D</button>
+              <span aria-hidden="true">|</span>
+              <button id="view-3d" class="chip" type="button" aria-pressed="false">3D</button>
+            </div>
             <div class="stage paper" role="group" aria-label="Simulation canvas">
               <canvas id="sim-canvas" width="1000" height="625" aria-label="Animated machine simulation"></canvas>
+              <div id="sim-view3d" class="view3d" hidden></div>
             </div>
             <div class="controls paper" role="group" aria-label="Simulation controls">
               <div class="transport-controls">

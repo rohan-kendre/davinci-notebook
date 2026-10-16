@@ -1,6 +1,7 @@
 import { setupDrawPad, toSketch } from './capture.js';
 import { createSim } from './physics.js';
 import { createRenderer } from './render.js';
+import { createView3D } from './view3d.js';
 import { PRESETS } from './gallery.js';
 import { normalizeScene } from './scene.js';
 import { interpretSketch, askLeonardo } from './ai.js';
@@ -59,6 +60,7 @@ function selectTab(selectedTab) {
   }
   if (selectedTab === liveTab && sim) {
     renderer.draw();
+    syncView();
     startLoop();
   }
   if (changed) window.scrollTo(0, 0);
@@ -549,6 +551,11 @@ const gravitySlider = document.getElementById('sim-gravity');
 const timeSlider = document.getElementById('sim-time-scale');
 const showSketch = document.getElementById('sim-show-sketch');
 const showLabels = document.getElementById('sim-show-labels');
+const viewContainer = document.getElementById('sim-view3d');
+const viewToggle = document.getElementById('view-toggle');
+let view3d = null;
+let viewMode = '2d';
+let view3dFailed = false;
 let sim = null;
 let renderer = null;
 let playing = false;
@@ -556,6 +563,37 @@ let animationFrame = 0;
 let lastStatsUpdate = 0;
 let imageVersion = 0;
 let currentScene = null;
+
+function syncView() {
+  const in3D = viewMode === '3d' && Boolean(view3d) && !view3dFailed;
+  simCanvas.hidden = in3D;
+  viewContainer.hidden = !in3D;
+  for (const mode of ['2d', '3d']) {
+    const button = document.getElementById(`view-${mode}`);
+    const selected = mode === (in3D ? '3d' : '2d');
+    button.setAttribute('aria-pressed', String(selected));
+    button.classList.toggle('is-active', selected);
+  }
+  if (in3D && sim && liveTab.classList.contains('is-active') && !document.hidden) view3d.start();
+  else view3d?.stop();
+  if (!in3D) renderer?.draw();
+}
+
+function disable3D(error) {
+  console.warn('Optional 3D view unavailable; continuing in 2D.', error);
+  view3dFailed = true;
+  viewToggle.hidden = true;
+  viewMode = '2d';
+  syncView();
+}
+
+for (const mode of ['2d', '3d']) {
+  document.getElementById(`view-${mode}`).addEventListener('click', () => {
+    viewMode = mode;
+    syncView();
+  });
+}
+viewContainer.addEventListener('view3d-unavailable', () => disable3D('WebGL context lost'));
 
 function updateStats() {
   const stats = sim?.getStats() || { distance: 0, peak: 0, topSpeed: 0 };
@@ -589,6 +627,8 @@ function startLoop() {
 
 function disposeLive() {
   stopLoop();
+  view3d?.stop();
+  view3d?.setSim(null);
   imageVersion += 1;
   sim?.destroy();
   sim = null;
@@ -618,6 +658,15 @@ function loadScene(scene, sketchImage = null) {
   renderer = createRenderer(simCanvas, sim, {
     sketchImage: image, showSketch: true, showLabels: false,
   });
+  if (!view3dFailed) {
+    try {
+      if (view3d) view3d.setSim(sim);
+      else view3d = createView3D(viewContainer, sim);
+      viewToggle.hidden = false;
+    } catch (error) {
+      disable3D(error);
+    }
+  }
   document.getElementById('live-title').textContent = scene.title;
   document.getElementById('note-text').textContent = scene.note;
   liveEmpty.hidden = true;
@@ -745,7 +794,12 @@ document.getElementById('live-back').addEventListener('click', () => {
   selectTab(document.getElementById('tab-gallery'));
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) stopLoop();
-  else startLoop();
+  if (document.hidden) {
+    stopLoop();
+    view3d?.stop();
+  } else {
+    startLoop();
+    syncView();
+  }
 });
 window.addEventListener('pagehide', disposeLive);
