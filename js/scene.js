@@ -12,6 +12,23 @@ const truth = value => value === true || value === 'true';
 const materials = { steel: 'metal', iron: 'metal', rock: 'stone', brick: 'stone', ball: 'rubber', tyre: 'rubber' };
 const validMaterials = new Set(['wood', 'stone', 'metal', 'rubber', 'cloth', 'earth']);
 
+// Some vision models wrap geometry under a shape key even when asked for flat
+// fields. Bring that known format into the scene contract before validation.
+function flattenBody(part) {
+  if (!part || typeof part !== 'object' || Array.isArray(part)) return part;
+  const shape = ['circle', 'rect', 'polygon'].includes(part.shape) ? part.shape :
+    ['circle', 'rect', 'polygon'].find(name => part[name] != null);
+  if (!shape || part[shape] == null) return part;
+  const nested = part[shape];
+  if (shape === 'polygon') {
+    return { ...part, shape,
+      vertices: part.vertices ?? (Array.isArray(nested) ? nested : nested?.vertices) };
+  }
+  if (!nested || typeof nested !== 'object' || Array.isArray(nested)) return part;
+  return { ...nested, ...part, shape,
+    height: part.height ?? nested.height ?? nested.thickness };
+}
+
 // A convex hull removes duplicate/collinear points and self-crossing order,
 // keeping malformed vision polygons safe for the physics engine.
 function convexHull(points) {
@@ -34,7 +51,7 @@ export function normalizeScene(raw) {
   let source;
   try { source = typeof raw === 'string' ? JSON.parse(raw) : raw; }
   catch { source = null; }
-  const input = Array.isArray(source?.bodies) ? source.bodies
+  const input = Array.isArray(source?.bodies) ? source.bodies.map(flattenBody)
     .filter(part => part && typeof part === 'object' && !Array.isArray(part) &&
       (['circle', 'rect', 'polygon'].includes(part.shape) || part.radius != null ||
        part.width != null || part.height != null || Array.isArray(part.vertices)))
