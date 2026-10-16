@@ -21,7 +21,8 @@
 <body>
 <main>
   <h1>Physics test bench</h1>
-  <p>Drop the stone box onto the seesaw, then drag any moving part. The rubber ball on the left is tracked.</p>
+  <p id="scene-description">Drop the stone box onto the seesaw, then drag any moving part. The rubber ball on the left is tracked.</p>
+  <p><label for="preset-picker">Scene </label><select id="preset-picker"><option value="test">Seesaw physics test</option></select></p>
   <canvas id="sim-canvas" width="1000" height="625"></canvas>
   <div class="controls">
     <button id="play" type="button">Pause</button>
@@ -39,6 +40,7 @@
 <script type="module">
   import { createSim } from './js/physics.js';
   import { createRenderer } from './js/render.js';
+  import { PRESETS } from './js/gallery.js';
 
   const scene = {
     title: 'Seesaw, pendulum and motor test',
@@ -69,10 +71,46 @@
   };
 
   const canvas = document.getElementById('sim-canvas');
-  const sim = createSim(scene);
+  const picker = document.getElementById('preset-picker');
+  const description = document.getElementById('scene-description');
+  const testDescription = description.textContent;
+  for (const preset of PRESETS) {
+    const option = document.createElement('option');
+    option.value = preset.id;
+    option.textContent = preset.title;
+    picker.append(option);
+  }
+
+  let sim = createSim(scene);
   const renderer = createRenderer(canvas, sim);
   sim.attachMouse(canvas);
   let playing = true;
+  let imageVersion = 0;
+
+  picker.addEventListener('change', () => {
+    const preset = PRESETS.find(item => item.id === picker.value);
+    description.textContent = preset?.blurb || testDescription;
+    sim.destroy();
+    sim = createSim(preset?.scene || scene);
+    sim.setGravity(Number(document.getElementById('gravity').value));
+    sim.attachMouse(canvas);
+    renderer.set('sim', sim);
+    renderer.set('sketchImage', null);
+    playing = true;
+    document.getElementById('play').textContent = 'Pause';
+
+    const version = ++imageVersion;
+    if (preset) {
+      const image = new Image();
+      image.onload = () => {
+        if (version === imageVersion) renderer.set('sketchImage', image);
+      };
+      image.onerror = () => {
+        if (version === imageVersion) renderer.set('sketchImage', null);
+      };
+      image.src = preset.image;
+    }
+  });
 
   function updateStats() {
     const stats = sim.getStats();
