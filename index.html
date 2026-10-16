@@ -60,7 +60,7 @@
           <h3>III · Breathe life</h3><p>Let real physics set the ink in motion.</p>
         </article>
       </div>
-      <p class="home-footer">Physics by Matter.js · Vision by Qwen3-VL, on-device via Ollama · Drawings: Leonardo da Vinci, public domain</p>
+      <p class="home-footer">Physics by Matter.js · Vision by Gemini API · Drawings: Leonardo da Vinci, public domain</p>
     </section>
 
     <section id="screen-draw" class="screen" role="tabpanel" aria-labelledby="tab-draw" tabindex="0" hidden>
@@ -182,18 +182,19 @@
       <p>
         <label for="settings-provider">Provider</label>
         <select id="settings-provider" name="provider" autofocus>
-          <option value="mock">Mock · works offline</option>
-          <option value="ollama">Ollama</option>
+          <option value="gemini">Gemini API</option>
+          <option value="mock">Mock · sample demo</option>
         </select>
       </p>
       <p>
-        <label for="settings-ollama-url">Ollama URL</label>
-        <input id="settings-ollama-url" name="ollamaUrl" type="url" value="http://localhost:11434" required>
+        <label for="settings-gemini-key">Gemini API key</label>
+        <input id="settings-gemini-key" name="geminiApiKey" type="password" autocomplete="off" spellcheck="false">
       </p>
       <p>
-        <label for="settings-ollama-model">Ollama model</label>
-        <input id="settings-ollama-model" name="ollamaModel" type="text" value="qwen3-vl:8b" required>
+        <label for="settings-gemini-model">Gemini model</label>
+        <input id="settings-gemini-model" name="geminiModel" type="text" value="gemini-3.8-flash" required>
       </p>
+      <p>Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. It is saved only in this browser's local storage; use a restricted key on a shared computer.</p>
       <button id="settings-test" class="btn btn-ghost" type="button">Test connection</button>
       <button id="settings-save" class="btn btn-primary" type="button">Save</button>
       <button id="settings-close" class="btn btn-ghost" type="button">Close</button>

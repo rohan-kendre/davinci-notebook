@@ -16,18 +16,11 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 Open **http://localhost:8000/**. On Windows, use `py -m http.server 8000 --bind 127.0.0.1`.
 
-For real image interpretation, install [Ollama](https://ollama.com/), then run:
+For real image interpretation, create a [Gemini API key in Google AI Studio](https://aistudio.google.com/app/apikey). In **Settings**, select **Gemini API**, paste the key, keep `gemini-3.8-flash` as the model, choose **Test connection**, then **Save**. Gemini processes the sketch and generates a scene; Ask Leonardo uses the same API. API usage may count against your project's quota or billing plan. The model name is editable if your account provides a different image-capable Gemini model.
 
-```sh
-ollama pull qwen3-vl:2b-instruct
-OLLAMA_ORIGINS="http://localhost:8000,http://127.0.0.1:8000" ollama serve
-```
+The key is saved in this browser's localStorage so the setting survives refresh. Use a restricted key and a trusted computer; this static prototype has no backend to conceal a browser-side key. Sketch images are sent to the Gemini API only when **Interpret sketch** is clicked. Do not commit the key to the repository or share a browser profile containing it.
 
-If port 11434 is already in use, quit the Ollama menu-bar application before starting the server with these origins. Keep the server running in its own terminal. For PowerShell, set `$env:OLLAMA_ORIGINS="http://localhost:8000,http://127.0.0.1:8000"` before `ollama serve`.
-
-In **Settings**, select **Ollama**, URL `http://localhost:11434`, model `qwen3-vl:2b-instruct`, then **Test connection** and **Save**. The smaller instruct model is the practical starting point for a laptop. The existing `qwen3-vl:2b` and `qwen3-vl:8b` tags on this Mac are thinking variants: in tests, they spent the output allowance on reasoning and returned no scene. Use the explicit instruct tag for a live demo. The first request also includes loading the model.
-
-**Mock** needs no Ollama installation. It intentionally returns the same sample lever for every image; it is a labelled demonstration, not image recognition. Use **Try a sample sketch** with Mock so the outlines match. Gallery experiments also work without AI. JavaScript libraries and Google Fonts are loaded from CDNs, so a fresh page load still needs internet access; Mock is not a fully offline installation bundle.
+**Mock** needs no API key. It intentionally returns the same sample lever for every image; it is a labelled demonstration, not image recognition. Use **Try a sample sketch** with Mock so the outlines match. Gallery experiments also work without AI. JavaScript libraries and Google Fonts are loaded from CDNs, so a fresh page load still needs internet access; Mock is not a fully offline installation bundle.
 
 ## Your first experiment
 
@@ -63,7 +56,7 @@ This is a qualitative educational prototype, not a calibrated engineering tool. 
 ```text
 Sketch / image / camera
   → white 1000×625 letterbox, grayscale + contrast
-  → JPEG sent to the selected local Qwen3-VL model through Ollama
+  → JPEG sent to the Gemini API when Gemini is selected
   → compact scene JSON (up to eight interpreted bodies)
   → normalizeScene repairs geometry, identifiers, materials and joints
   → editable outlines and parts list
@@ -71,15 +64,15 @@ Sketch / image / camera
   → measurements + a physics explanation
 ```
 
-The original drawing stays unprocessed. Inference runs on your machine when the Ollama URL is localhost; no cloud AI key is needed. Settings persist in browser localStorage. Image/base64 content is not printed in logs. Completion diagnostics contain only elapsed time, termination reason and generated token count.
+The original drawing stays unprocessed. Gemini inference runs in Google's cloud, and settings persist in browser localStorage. Image/base64 content and the API key are not printed in logs. Completion diagnostics contain only elapsed time, termination reason and generated token count.
 
-Interpretation has one **90-second total deadline**, including compatibility fallbacks and a single JSON repair retry. Ollama generation is capped at **1200 tokens**; a truncated reply produces a clear error rather than another identical request. Ask Leonardo has a **30-second deadline** and a shorter output limit. AI errors never silently substitute the mock scene.
+Interpretation has one **90-second total deadline** and a structured JSON response with a **4096-token output cap**. A truncated reply produces a clear error. Ask Leonardo has a **45-second deadline** and a shorter output limit. AI errors never silently substitute the mock scene.
 
 ## If something fails during the demo
 
-- **Cannot connect:** confirm `ollama list`, the URL and the exact model name; restart Ollama with the origins above. Use localhost rather than opening `index.html` as a file.
-- **90-second timeout:** use `qwen3-vl:2b-instruct`, close other memory-heavy applications and try a simpler sketch. Never keep an audience waiting: choose Mock and the sample, or open a Gallery experiment.
-- **Output limit / invalid JSON:** reduce the sketch to a few clear parts. Check the model name; do not assume a failed interpretation is correct.
+- **Cannot connect:** check the internet connection, API key, model name and **Test connection** result. Use localhost rather than opening `index.html` as a file.
+- **90-second timeout:** try a simpler sketch. Never keep an audience waiting: choose Mock and the sample, or open a Gallery experiment.
+- **Quota / output limit / invalid JSON:** check your Gemini API quota or reduce the sketch to a few clear parts. Do not assume a failed interpretation is correct.
 - **Nothing moves:** inspect Fixed checkboxes and the pivot. A fixed assembly is supposed to remain still. Reset after a change.
 - **Camera unavailable:** allow camera access for localhost, close other camera apps, or upload the image instead.
 - **3D unavailable:** use 2D. The experiment and measurements do not require WebGL.
@@ -98,7 +91,7 @@ Before presenting, load the page and model, run this sequence twice on the demo 
 
 - [Matter.js](https://brm.io/matter-js/) — rigid-body physics, MIT license.
 - [Three.js](https://threejs.org/) — optional 3D visualization, MIT license.
-- [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL) through [Ollama](https://ollama.com/) — local vision and explanations; consult upstream model licenses.
+- [Gemini API](https://ai.google.dev/gemini-api/docs) — cloud image understanding, structured scene output and explanations; usage is governed by Google's terms and your API plan.
 - [Google Fonts](https://fonts.google.com/) — IM Fell English, EB Garamond, Caveat and Space Mono, under their respective open font licenses.
 - Leonardo da Vinci drawings in `assets/leonardo/`, sourced via [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Drawings_by_Leonardo_da_Vinci); original works are public domain. The repository currently does not record individual Commons file-page URLs.
 

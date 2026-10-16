@@ -111,9 +111,9 @@ tabs.forEach((tab, index) => {
 
 const SETTINGS_KEY = 'davinci-notebook.settings';
 const defaults = {
-  provider: 'mock',
-  ollamaUrl: 'http://localhost:11434',
-  ollamaModel: 'qwen3-vl:8b',
+  provider: 'gemini',
+  geminiApiKey: '',
+  geminiModel: 'gemini-3.8-flash',
 };
 const settingsModal = document.getElementById('settings-modal');
 const settingsForm = document.getElementById('settings-form');
@@ -133,7 +133,7 @@ function loadSettings() {
     for (const key of Object.keys(defaults)) {
       if (typeof parsed[key] === 'string') loaded[key] = parsed[key];
     }
-    if (!['mock', 'ollama'].includes(loaded.provider)) {
+    if (!['mock', 'gemini'].includes(loaded.provider)) {
       loaded.provider = defaults.provider;
     }
     return loaded;
@@ -202,19 +202,34 @@ document.getElementById('settings-test').addEventListener('click', async (event)
   const button = event.currentTarget;
   const provider = settingsForm.elements.namedItem('provider').value;
   if (provider === 'mock') { showToast('Mock is ready to use offline.'); return; }
-  const url = settingsForm.elements.namedItem('ollamaUrl').value.trim().replace(/\/+$/, '');
-  const model = settingsForm.elements.namedItem('ollamaModel').value.trim();
+  const key = settingsForm.elements.namedItem('geminiApiKey').value.trim();
+  const model = settingsForm.elements.namedItem('geminiModel').value.trim();
+  if (!key) { showToast('Add a Gemini API key first.', true); return; }
+  if (!/^[A-Za-z0-9._-]+$/.test(model)) {
+    showToast('Enter a valid Gemini model name.', true);
+    return;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
   button.disabled = true;
   try {
-    const response = await fetch(`${url}/api/tags`);
-    if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
-    const data = await response.json();
-    const available = Array.isArray(data.models) && data.models.some(item =>
-      item.name === model || item.model === model);
-    showToast(available ? `${model} is ready.` : `Ollama is reachable, but ${model} is not installed.`, !available);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
+      headers: { 'x-goog-api-key': key }, signal: controller.signal,
+    });
+    if (response.ok) showToast(`${model} is ready.`);
+    else if (response.status === 400 || response.status === 401 || response.status === 403)
+      showToast('Gemini rejected this API key. Check it in Settings.', true);
+    else if (response.status === 404)
+      showToast('Gemini model not found. Check the model name.', true);
+    else if (response.status === 429)
+      showToast('Gemini quota or rate limit reached. Try again later.', true);
+    else showToast(`Gemini connection test failed (${response.status}).`, true);
   } catch {
-    showToast('Could not reach Ollama. On the Mac run: OLLAMA_ORIGINS="*" ollama serve', true);
+    showToast(controller.signal.aborted
+      ? 'Gemini connection test timed out. Try again.'
+      : 'Could not reach Gemini. Check your internet connection.', true);
   } finally {
+    clearTimeout(timer);
     button.disabled = false;
   }
 });
