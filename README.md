@@ -16,9 +16,9 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 Open **http://localhost:8000/**. On Windows, use `py -m http.server 8000 --bind 127.0.0.1`.
 
-For real image interpretation, create a [Gemini API key in Google AI Studio](https://aistudio.google.com/app/apikey). In **Settings**, select **Gemini API**, paste the key, keep `gemini-3.8-flash` as the model, choose **Test connection**, then **Save**. Gemini processes the sketch and generates a scene; Ask Leonardo uses the same API. API usage may count against your project's quota or billing plan. The model name is editable if your account provides a different image-capable Gemini model.
+For real image interpretation, create an [OpenRouter API key](https://openrouter.ai/settings/keys). In **Settings**, select **OpenRouter**, paste the key, keep `openai/gpt-4.1-mini` as the model, choose **Test connection**, then **Save**. OpenRouter routes the sketch to a vision-capable model and returns scene JSON; Ask Leonardo uses the same API. Requests may consume credits, and the model ID is editable. A Gemini API key cannot authenticate to OpenRouter.
 
-The key is saved in this browser's localStorage so the setting survives refresh. Use a restricted key and a trusted computer; this static prototype has no backend to conceal a browser-side key. Sketch images are sent to the Gemini API only when **Interpret sketch** is clicked. Do not commit the key to the repository or share a browser profile containing it.
+The key is saved in this browser's localStorage so the setting survives refresh. Use a limited key and a trusted computer; this static prototype has no backend to conceal a browser-side key. Sketch images are sent to OpenRouter only when **Interpret sketch** is clicked. Do not commit the key to the repository or share a browser profile containing it.
 
 **Mock** needs no API key. It intentionally returns the same sample lever for every image; it is a labelled demonstration, not image recognition. Use **Try a sample sketch** with Mock so the outlines match. Gallery experiments also work without AI. JavaScript libraries and Google Fonts are loaded from CDNs, so a fresh page load still needs internet access; Mock is not a fully offline installation bundle.
 
@@ -56,7 +56,7 @@ This is a qualitative educational prototype, not a calibrated engineering tool. 
 ```text
 Sketch / image / camera
   → white 1000×625 letterbox, grayscale + contrast
-  → JPEG sent to the Gemini API when Gemini is selected
+  → JPEG sent through OpenRouter when OpenRouter is selected
   → compact scene JSON (up to eight interpreted bodies)
   → normalizeScene repairs geometry, identifiers, materials and joints
   → editable outlines and parts list
@@ -64,15 +64,15 @@ Sketch / image / camera
   → measurements + a physics explanation
 ```
 
-The original drawing stays unprocessed. Gemini inference runs in Google's cloud, and settings persist in browser localStorage. Image/base64 content and the API key are not printed in logs. Completion diagnostics contain only elapsed time, termination reason and generated token count.
+The original drawing stays unprocessed. OpenRouter routes AI requests to the selected cloud model, and settings persist in browser localStorage. Image/base64 content and the API key are not printed in logs. Completion diagnostics contain only elapsed time, termination reason and generated token count.
 
-Interpretation has one **90-second total deadline** and a structured JSON response with a **4096-token output cap**. A truncated reply produces a clear error. Ask Leonardo has a **45-second deadline** and a shorter output limit. AI errors never silently substitute the mock scene.
+Interpretation has one **90-second total deadline** and requests JSON output with a **3000-token output cap**. A truncated reply produces a clear error. Ask Leonardo has a **45-second deadline** and a shorter output limit. AI errors never silently substitute the mock scene.
 
 ## If something fails during the demo
 
-- **Cannot connect:** check the internet connection, API key, model name and **Test connection** result. Use localhost rather than opening `index.html` as a file.
+- **Cannot connect:** check the internet connection, OpenRouter key, model ID and **Test connection** result. Use localhost rather than opening `index.html` as a file. The previous Gemini key will not work here.
 - **90-second timeout:** try a simpler sketch. Never keep an audience waiting: choose Mock and the sample, or open a Gallery experiment.
-- **Quota / output limit / invalid JSON:** check your Gemini API quota or reduce the sketch to a few clear parts. Do not assume a failed interpretation is correct.
+- **Credits / output limit / invalid JSON:** check your OpenRouter credits or reduce the sketch to a few clear parts. Do not assume a failed interpretation is correct.
 - **Nothing moves:** inspect Fixed checkboxes and the pivot. A fixed assembly is supposed to remain still. Reset after a change.
 - **Camera unavailable:** allow camera access for localhost, close other camera apps, or upload the image instead.
 - **3D unavailable:** use 2D. The experiment and measurements do not require WebGL.
@@ -91,7 +91,7 @@ Before presenting, load the page and model, run this sequence twice on the demo 
 
 - [Matter.js](https://brm.io/matter-js/) — rigid-body physics, MIT license.
 - [Three.js](https://threejs.org/) — optional 3D visualization, MIT license.
-- [Gemini API](https://ai.google.dev/gemini-api/docs) — cloud image understanding, structured scene output and explanations; usage is governed by Google's terms and your API plan.
+- [OpenRouter](https://openrouter.ai/docs/quickstart) and [GPT-4.1 Mini](https://openrouter.ai/openai/gpt-4.1-mini) — routed cloud vision and explanations; usage is governed by the provider's terms and your API plan.
 - [Google Fonts](https://fonts.google.com/) — IM Fell English, EB Garamond, Caveat and Space Mono, under their respective open font licenses.
 - Leonardo da Vinci drawings in `assets/leonardo/`, sourced via [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Drawings_by_Leonardo_da_Vinci); original works are public domain. The repository currently does not record individual Commons file-page URLs.
 

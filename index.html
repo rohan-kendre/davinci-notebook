@@ -60,7 +60,7 @@
           <h3>III · Breathe life</h3><p>Let real physics set the ink in motion.</p>
         </article>
       </div>
-      <p class="home-footer">Physics by Matter.js · Vision by Gemini API · Drawings: Leonardo da Vinci, public domain</p>
+      <p class="home-footer">Physics by Matter.js · Vision through OpenRouter · Drawings: Leonardo da Vinci, public domain</p>
     </section>
 
     <section id="screen-draw" class="screen" role="tabpanel" aria-labelledby="tab-draw" tabindex="0" hidden>
@@ -182,19 +182,19 @@
       <p>
         <label for="settings-provider">Provider</label>
         <select id="settings-provider" name="provider" autofocus>
-          <option value="gemini">Gemini API</option>
+          <option value="openrouter">OpenRouter</option>
           <option value="mock">Mock · sample demo</option>
         </select>
       </p>
       <p>
-        <label for="settings-gemini-key">Gemini API key</label>
-        <input id="settings-gemini-key" name="geminiApiKey" type="password" autocomplete="off" spellcheck="false">
+        <label for="settings-openrouter-key">OpenRouter API key</label>
+        <input id="settings-openrouter-key" name="openRouterApiKey" type="password" autocomplete="off" spellcheck="false">
       </p>
       <p>
-        <label for="settings-gemini-model">Gemini model</label>
-        <input id="settings-gemini-model" name="geminiModel" type="text" value="gemini-3.8-flash" required>
+        <label for="settings-openrouter-model">OpenRouter model ID</label>
+        <input id="settings-openrouter-model" name="openRouterModel" type="text" value="openai/gpt-4.1-mini" required>
       </p>
-      <p>Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. It is saved only in this browser's local storage; use a restricted key on a shared computer.</p>
+      <p>Get a key from <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">OpenRouter</a>. It is saved in this browser's local storage; use a limited key on a trusted computer.</p>
       <button id="settings-test" class="btn btn-ghost" type="button">Test connection</button>
       <button id="settings-save" class="btn btn-primary" type="button">Save</button>
       <button id="settings-close" class="btn btn-ghost" type="button">Close</button>

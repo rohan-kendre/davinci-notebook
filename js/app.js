@@ -111,9 +111,9 @@ tabs.forEach((tab, index) => {
 
 const SETTINGS_KEY = 'davinci-notebook.settings';
 const defaults = {
-  provider: 'gemini',
-  geminiApiKey: '',
-  geminiModel: 'gemini-3.8-flash',
+  provider: 'openrouter',
+  openRouterApiKey: '',
+  openRouterModel: 'openai/gpt-4.1-mini',
 };
 const settingsModal = document.getElementById('settings-modal');
 const settingsForm = document.getElementById('settings-form');
@@ -133,8 +133,13 @@ function loadSettings() {
     for (const key of Object.keys(defaults)) {
       if (typeof parsed[key] === 'string') loaded[key] = parsed[key];
     }
-    if (!['mock', 'gemini'].includes(loaded.provider)) {
+    if (!['mock', 'openrouter'].includes(loaded.provider)) {
       loaded.provider = defaults.provider;
+    }
+    // Remove obsolete provider credentials instead of leaving the old key in storage.
+    if ('geminiApiKey' in parsed || 'ollamaUrl' in parsed || 'ollamaModel' in parsed) {
+      try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(loaded)); }
+      catch { /* The in-memory settings still avoid using obsolete credentials. */ }
     }
     return loaded;
   } catch {
@@ -202,32 +207,54 @@ document.getElementById('settings-test').addEventListener('click', async (event)
   const button = event.currentTarget;
   const provider = settingsForm.elements.namedItem('provider').value;
   if (provider === 'mock') { showToast('Mock is ready to use offline.'); return; }
-  const key = settingsForm.elements.namedItem('geminiApiKey').value.trim();
-  const model = settingsForm.elements.namedItem('geminiModel').value.trim();
-  if (!key) { showToast('Add a Gemini API key first.', true); return; }
-  if (!/^[A-Za-z0-9._-]+$/.test(model)) {
-    showToast('Enter a valid Gemini model name.', true);
+  const key = settingsForm.elements.namedItem('openRouterApiKey').value.trim();
+  const model = settingsForm.elements.namedItem('openRouterModel').value.trim();
+  if (!key) { showToast('Add an OpenRouter API key first.', true); return; }
+  if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._:-]+$/.test(model)) {
+    showToast('Enter a valid OpenRouter model ID.', true);
     return;
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   button.disabled = true;
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
-      headers: { 'x-goog-api-key': key }, signal: controller.signal,
+    const headers = { Authorization: `Bearer ${key}` };
+    const keyResponse = await fetch('https://openrouter.ai/api/v1/key', {
+      headers, signal: controller.signal,
     });
-    if (response.ok) showToast(`${model} is ready.`);
-    else if (response.status === 400 || response.status === 401 || response.status === 403)
-      showToast('Gemini rejected this API key. Check it in Settings.', true);
-    else if (response.status === 404)
-      showToast('Gemini model not found. Check the model name.', true);
-    else if (response.status === 429)
-      showToast('Gemini quota or rate limit reached. Try again later.', true);
-    else showToast(`Gemini connection test failed (${response.status}).`, true);
+    if (keyResponse.status === 401 || keyResponse.status === 403) {
+      showToast('OpenRouter rejected this API key. Check it in Settings.', true);
+      return;
+    }
+    if (!keyResponse.ok) {
+      showToast(`OpenRouter key test failed (${keyResponse.status}).`, true);
+      return;
+    }
+    const keyData = await keyResponse.json();
+    if (keyData.data?.limit_remaining === 0) {
+      showToast('OpenRouter key is valid, but its spending limit is exhausted.', true);
+      return;
+    }
+    const modelResponse = await fetch(`https://openrouter.ai/api/v1/model/${model}`, {
+      headers, signal: controller.signal,
+    });
+    if (modelResponse.status === 404) {
+      showToast('OpenRouter model not found. Check the model ID.', true);
+      return;
+    }
+    if (!modelResponse.ok) {
+      showToast(`OpenRouter model test failed (${modelResponse.status}).`, true);
+      return;
+    }
+    const modelData = await modelResponse.json();
+    const inputs = modelData.data?.architecture?.input_modalities;
+    if (Array.isArray(inputs) && !inputs.includes('image'))
+      showToast('This OpenRouter model does not accept images. Choose a vision model.', true);
+    else showToast(`${model} is ready for image input.`);
   } catch {
     showToast(controller.signal.aborted
-      ? 'Gemini connection test timed out. Try again.'
-      : 'Could not reach Gemini. Check your internet connection.', true);
+      ? 'OpenRouter connection test timed out. Try again.'
+      : 'Could not reach OpenRouter. Check your internet connection.', true);
   } finally {
     clearTimeout(timer);
     button.disabled = false;
