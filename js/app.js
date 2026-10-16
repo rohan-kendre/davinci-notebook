@@ -50,6 +50,10 @@ function selectTab(selectedTab) {
     panel.classList.toggle('is-active', active);
     panel.hidden = !active;
   }
+  if (selectedTab.id === 'tab-interpret' && appState.scene && appState.sketch) {
+    drawInterpretScene();
+    renderParts();
+  }
   if (selectedTab === liveTab && sim) {
     renderer.draw();
     startLoop();
@@ -72,10 +76,6 @@ tabs.forEach((tab, index) => {
     selectTab(tabs[nextIndex]);
     tabs[nextIndex].focus();
   });
-});
-
-document.querySelectorAll('[data-unfinished]').forEach((button) => {
-  button.addEventListener('click', () => showToast('Available in the next step'));
 });
 
 const SETTINGS_KEY = 'davinci-notebook.settings';
@@ -490,8 +490,6 @@ async function runInterpret(reuseSketch = false) {
     }
     const raw = await interpretSketch(appState.sketch.base64, settings);
     appState.scene = normalizeScene(raw);
-    drawInterpretScene();
-    renderParts();
     selectTab(document.getElementById('tab-interpret'));
     document.getElementById('screen-interpret').focus();
   } catch (error) {
