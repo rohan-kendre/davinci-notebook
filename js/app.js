@@ -2,6 +2,8 @@ import { setupDrawPad, toSketch } from './capture.js';
 import { createSim } from './physics.js';
 import { createRenderer } from './render.js';
 import { PRESETS } from './gallery.js';
+import { normalizeScene } from './scene.js';
+import { interpretSketch, askLeonardo } from './ai.js';
 
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 const toast = document.getElementById('toast');
@@ -78,11 +80,9 @@ document.querySelectorAll('[data-unfinished]').forEach((button) => {
 
 const SETTINGS_KEY = 'davinci-notebook.settings';
 const defaults = {
-  provider: 'ollama',
+  provider: 'mock',
   ollamaUrl: 'http://localhost:11434',
   ollamaModel: 'qwen3-vl:8b',
-  geminiApiKey: '',
-  geminiModel: '',
 };
 const settingsModal = document.getElementById('settings-modal');
 const settingsForm = document.getElementById('settings-form');
@@ -102,7 +102,7 @@ function loadSettings() {
     for (const key of Object.keys(defaults)) {
       if (typeof parsed[key] === 'string') loaded[key] = parsed[key];
     }
-    if (!['ollama', 'gemini'].includes(loaded.provider)) {
+    if (!['mock', 'ollama'].includes(loaded.provider)) {
       loaded.provider = defaults.provider;
     }
     return loaded;
@@ -167,6 +167,26 @@ function saveSettings() {
 }
 
 document.getElementById('settings-save').addEventListener('click', saveSettings);
+document.getElementById('settings-test').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  const provider = settingsForm.elements.namedItem('provider').value;
+  if (provider === 'mock') { showToast('Mock is ready to use offline.'); return; }
+  const url = settingsForm.elements.namedItem('ollamaUrl').value.trim().replace(/\/+$/, '');
+  const model = settingsForm.elements.namedItem('ollamaModel').value.trim();
+  button.disabled = true;
+  try {
+    const response = await fetch(`${url}/api/tags`);
+    if (!response.ok) throw new Error(`Ollama returned ${response.status}`);
+    const data = await response.json();
+    const available = Array.isArray(data.models) && data.models.some(item =>
+      item.name === model || item.model === model);
+    showToast(available ? `${model} is ready.` : `Ollama is reachable, but ${model} is not installed.`, !available);
+  } catch {
+    showToast('Could not reach Ollama. On the Mac run: OLLAMA_ORIGINS="*" ollama serve', true);
+  } finally {
+    button.disabled = false;
+  }
+});
 settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
   saveSettings();
@@ -174,7 +194,7 @@ settingsForm.addEventListener('submit', (event) => {
 
 const drawCanvas = document.getElementById('draw-canvas');
 const drawPad = setupDrawPad(drawCanvas);
-const appState = { sketch: null };
+const appState = { sketch: null, scene: null };
 const uploadInput = document.getElementById('sketch-upload');
 const cameraPreview = document.getElementById('camera-preview');
 const cameraVideo = document.getElementById('camera-video');
@@ -188,6 +208,7 @@ let cameraWait = null;
 function changeDrawing(action) {
   uploadVersion += 1;
   appState.sketch = null;
+  appState.scene = null;
   action();
 }
 document.getElementById('draw-undo').addEventListener('click', () => changeDrawing(drawPad.undo));
@@ -196,6 +217,7 @@ document.getElementById('draw-sample').addEventListener('click', () => changeDra
 drawCanvas.addEventListener('pointerdown', () => {
   uploadVersion += 1;
   appState.sketch = null;
+  appState.scene = null;
 });
 
 function paintSource(source, width, height) {
@@ -356,22 +378,138 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopCamera();
 });
 
-document.getElementById('draw-interpret').addEventListener('click', async () => {
-  stopCamera();
-  uploadVersion += 1;
-  setLoading(true, 'Preparing your sketch…');
+const interpretCanvas = document.getElementById('interpret-canvas');
+const partsList = document.getElementById('parts-list');
+const interpretButton = document.getElementById('draw-interpret');
+const rereadButton = document.getElementById('interpret-reread');
+const breatheButton = document.getElementById('interpret-live');
+let interpretBusy = false;
+
+function drawInterpretScene() {
+  if (!appState.sketch || !appState.scene) return;
+  const ctx = interpretCanvas.getContext('2d');
+  ctx.clearRect(0, 0, 1000, 625);
+  ctx.drawImage(appState.sketch.canvas, 0, 0);
+  for (const body of appState.scene.bodies) {
+    ctx.save();
+    ctx.strokeStyle = '#8B3E1C';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 6]);
+    ctx.beginPath();
+    if (body.shape === 'circle') {
+      ctx.arc(body.x, body.y, body.radius, 0, Math.PI * 2);
+    } else if (body.shape === 'rect') {
+      ctx.translate(body.x, body.y);
+      ctx.rotate(body.angle * Math.PI / 180);
+      ctx.rect(-body.width / 2, -body.height / 2, body.width, body.height);
+    } else {
+      body.vertices.forEach(([x, y], index) => index ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.closePath();
+    }
+    ctx.stroke();
+    ctx.restore();
+    const anchor = body.shape === 'polygon' ? body.vertices[0] : [body.x, body.y];
+    const tagX = Math.max(5, Math.min(850, anchor[0] + 12));
+    const tagY = Math.max(22, Math.min(610, anchor[1] - 14));
+    ctx.font = '13px "Space Mono", monospace';
+    const label = body.label.slice(0, 22);
+    const width = ctx.measureText(label).width + 14;
+    ctx.fillStyle = '#FBF5E6';
+    ctx.fillRect(tagX, tagY - 16, width, 21);
+    ctx.strokeStyle = '#8B3E1C';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.strokeRect(tagX, tagY - 16, width, 21);
+    ctx.fillStyle = '#3B2A1A';
+    ctx.fillText(label, tagX + 7, tagY);
+  }
+}
+
+function renderParts() {
+  partsList.replaceChildren();
+  for (const body of appState.scene?.bodies || []) {
+    const row = document.createElement('div');
+    row.className = 'part-row';
+    const label = document.createElement('strong');
+    label.className = 'part-label';
+    label.textContent = body.label;
+    const shape = document.createElement('span');
+    shape.className = 'part-tag';
+    shape.textContent = body.shape;
+    const material = document.createElement('select');
+    material.className = 'part-material';
+    material.setAttribute('aria-label', `Material for ${body.label}`);
+    for (const name of ['wood', 'stone', 'metal', 'rubber', 'cloth', 'earth']) {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      material.append(option);
+    }
+    material.value = body.material;
+    material.addEventListener('change', () => { body.material = material.value; drawInterpretScene(); });
+    const fixed = document.createElement('label');
+    fixed.className = 'part-fixed';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = body.static;
+    checkbox.addEventListener('change', () => { body.static = checkbox.checked; drawInterpretScene(); });
+    fixed.append(checkbox, ' Fixed');
+    const remove = document.createElement('button');
+    remove.className = 'part-delete icon-btn';
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', `Delete ${body.label}`);
+    remove.addEventListener('click', () => {
+      appState.scene.bodies = appState.scene.bodies.filter(part => part !== body);
+      appState.scene.joints = appState.scene.joints.filter(joint => joint.a !== body.id && joint.b !== body.id);
+      appState.scene.motors = appState.scene.motors.filter(motor => motor.body !== body.id);
+      appState.scene.velocities = appState.scene.velocities.filter(velocity => velocity.body !== body.id);
+      renderParts();
+      drawInterpretScene();
+    });
+    row.append(label, shape, material, fixed, remove);
+    partsList.append(row);
+  }
+  breatheButton.disabled = !appState.scene?.bodies.length;
+}
+
+async function runInterpret(reuseSketch = false) {
+  if (interpretBusy) return;
+  interpretBusy = true;
+  interpretButton.disabled = true;
+  rereadButton.disabled = true;
+  const messages = ['Leonardo is studying your sketch…', 'Measuring the beams…', 'Finding the pivots…'];
+  let messageIndex = 0;
+  setLoading(true, messages[messageIndex]);
+  const rotate = setInterval(() => setLoading(true, messages[++messageIndex % messages.length]), 700);
   try {
-    const sketch = await toSketch(drawPad.getCanvas());
-    appState.sketch = sketch;
-    document.getElementById('interpret-canvas').getContext('2d').drawImage(sketch.canvas, 0, 0);
-    console.info({ width: sketch.canvas.width, height: sketch.canvas.height, base64Length: sketch.base64.length });
+    if (!reuseSketch || !appState.sketch) {
+      stopCamera();
+      uploadVersion += 1;
+      appState.sketch = await toSketch(drawPad.getCanvas());
+    }
+    const raw = await interpretSketch(appState.sketch.base64, settings);
+    appState.scene = normalizeScene(raw);
+    drawInterpretScene();
+    renderParts();
     selectTab(document.getElementById('tab-interpret'));
     document.getElementById('screen-interpret').focus();
   } catch (error) {
-    showToast(error.message || 'Could not prepare this sketch. Please try again.', true);
+    showToast(error.message || 'Could not interpret this sketch. Please try again.', true);
   } finally {
+    clearInterval(rotate);
     setLoading(false);
+    interpretBusy = false;
+    interpretButton.disabled = false;
+    rereadButton.disabled = false;
   }
+}
+
+interpretButton.addEventListener('click', () => void runInterpret());
+rereadButton.addEventListener('click', () => void runInterpret(true));
+breatheButton.addEventListener('click', () => {
+  if (!appState.scene?.bodies.length) return;
+  loadScene(appState.scene, appState.sketch?.canvas || null);
 });
 
 const galleryGrid = document.getElementById('gallery-grid');
@@ -390,6 +528,7 @@ let playing = false;
 let animationFrame = 0;
 let lastStatsUpdate = 0;
 let imageVersion = 0;
+let currentScene = null;
 
 function updateStats() {
   const stats = sim?.getStats() || { distance: 0, peak: 0, topSpeed: 0 };
@@ -427,6 +566,7 @@ function disposeLive() {
   sim?.destroy();
   sim = null;
   renderer = null;
+  currentScene = null;
   playing = false;
   liveContent.hidden = true;
   liveEmpty.hidden = false;
@@ -435,7 +575,7 @@ function disposeLive() {
   updateStats();
 }
 
-function loadPreset(preset) {
+function loadScene(scene, sketchImage = null) {
   disposeLive();
   gravitySlider.value = '1';
   timeSlider.value = '1';
@@ -444,14 +584,15 @@ function loadPreset(preset) {
   document.getElementById('sim-gravity-value').textContent = '1.00×';
   document.getElementById('sim-time-value').textContent = '1.0×';
 
-  const image = new Image();
   const version = ++imageVersion;
-  sim = createSim(preset.scene);
+  currentScene = scene;
+  const image = typeof sketchImage === 'string' ? new Image() : sketchImage;
+  sim = createSim(scene);
   renderer = createRenderer(simCanvas, sim, {
     sketchImage: image, showSketch: true, showLabels: false,
   });
-  document.getElementById('live-title').textContent = preset.scene.title;
-  document.getElementById('note-text').textContent = preset.scene.note;
+  document.getElementById('live-title').textContent = scene.title;
+  document.getElementById('note-text').textContent = scene.note;
   liveEmpty.hidden = true;
   liveContent.hidden = false;
   playPause.textContent = 'Pause';
@@ -460,13 +601,22 @@ function loadPreset(preset) {
   updateStats();
   selectTab(liveTab);
   sim.attachMouse(simCanvas);
-  image.onload = () => {
-    if (version === imageVersion && renderer) renderer.draw();
-  };
-  image.onerror = () => {
-    if (version === imageVersion && renderer) renderer.set('sketchImage', null);
-  };
-  image.src = preset.image;
+  if (typeof sketchImage === 'string') {
+    image.onload = () => {
+      if (version === imageVersion && renderer) renderer.draw();
+    };
+    image.onerror = () => {
+      if (version === imageVersion && renderer) {
+        renderer.set('sketchImage', null);
+        renderer.draw();
+      }
+    };
+    image.src = sketchImage;
+  }
+}
+
+function loadPreset(preset) {
+  loadScene(preset.scene, preset.image);
 }
 
 for (const preset of PRESETS) {
@@ -549,6 +699,20 @@ showSketch.addEventListener('change', () => {
 showLabels.addEventListener('change', () => {
   renderer?.set('showLabels', showLabels.checked);
   if (renderer && !playing) renderer.draw();
+});
+document.getElementById('ask-leonardo').addEventListener('click', async (event) => {
+  if (!sim || !currentScene) return;
+  const button = event.currentTarget;
+  const scene = currentScene;
+  button.disabled = true;
+  try {
+    const answer = await askLeonardo(scene, sim.getStats(), settings);
+    if (scene === currentScene) document.getElementById('note-text').textContent = answer;
+  } catch (error) {
+    showToast(error.message || 'Leonardo could not answer just now.', true);
+  } finally {
+    button.disabled = false;
+  }
 });
 document.getElementById('live-back').addEventListener('click', () => {
   selectTab(document.getElementById('tab-gallery'));

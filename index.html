@@ -40,7 +40,7 @@
         <button id="draw-sample" class="btn sample-btn" type="button">Try a sample sketch</button>
         <button id="draw-upload" class="btn" type="button">Upload</button>
         <button id="draw-camera" class="btn" type="button" aria-controls="camera-preview">Camera</button>
-        <button id="draw-interpret" class="btn btn-primary" type="button">Interpret</button>
+        <button id="draw-interpret" class="btn btn-primary" type="button">Interpret sketch</button>
         <input id="sketch-upload" type="file" accept="image/*" aria-label="Upload a sketch image" hidden>
       </div>
       <section id="camera-preview" class="paper" aria-label="Camera preview" hidden>
@@ -56,12 +56,12 @@
     <section id="screen-interpret" class="screen" role="tabpanel" aria-labelledby="tab-interpret" tabindex="0" hidden>
       <h2>Interpret</h2>
       <div class="stage paper">
-        <canvas id="interpret-canvas" width="1000" height="625" aria-label="Interpreted sketch canvas">Your interpreted sketch will appear here.</canvas>
+        <canvas id="interpret-canvas" width="1000" height="625" aria-label="Sketch with interpreted machine outlines">Your interpreted sketch will appear here.</canvas>
       </div>
       <aside class="side-panel" aria-label="Sketch parts">
         <div id="parts-list" class="parts-list"></div>
-        <button id="interpret-reread" class="btn" type="button" data-unfinished>Re-read sketch</button>
-        <button id="interpret-live" class="btn btn-primary" type="button" data-unfinished>Breathe life</button>
+        <button id="interpret-reread" class="btn" type="button">Re-read sketch</button>
+        <button id="interpret-live" class="btn btn-primary" type="button">Breathe life →</button>
       </aside>
     </section>
 
@@ -114,6 +114,7 @@
               <h3>LEONARDO'S MARGIN NOTE · HOVER TO READ</h3>
               <p id="note-text" class="mirror"></p>
             </div>
+            <button id="ask-leonardo" class="btn btn-ghost" type="button">Ask Leonardo</button>
           </aside>
         </div>
       </div>
@@ -134,8 +135,8 @@
       <p>
         <label for="settings-provider">Provider</label>
         <select id="settings-provider" name="provider" autofocus>
+          <option value="mock">Mock · works offline</option>
           <option value="ollama">Ollama</option>
-          <option value="gemini">Gemini</option>
         </select>
       </p>
       <p>
@@ -146,14 +147,7 @@
         <label for="settings-ollama-model">Ollama model</label>
         <input id="settings-ollama-model" name="ollamaModel" type="text" value="qwen3-vl:8b" required>
       </p>
-      <p>
-        <label for="settings-gemini-key">Gemini API key (optional)</label>
-        <input id="settings-gemini-key" name="geminiApiKey" type="password" autocomplete="off">
-      </p>
-      <p>
-        <label for="settings-gemini-model">Gemini model name</label>
-        <input id="settings-gemini-model" name="geminiModel" type="text">
-      </p>
+      <button id="settings-test" class="btn btn-ghost" type="button">Test connection</button>
       <button id="settings-save" class="btn btn-primary" type="button">Save</button>
       <button id="settings-close" class="btn btn-ghost" type="button">Close</button>
     </form>
