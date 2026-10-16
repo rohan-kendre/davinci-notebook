@@ -31,18 +31,26 @@
   <main>
     <section id="screen-draw" class="screen is-active" role="tabpanel" aria-labelledby="tab-draw" tabindex="0">
       <h2>Draw</h2>
-      <div class="stage paper">
+      <div id="drawing-area" class="stage paper">
         <canvas id="draw-canvas" class="draw-pad" width="1000" height="625" aria-label="Sketch canvas">Your sketch will appear here.</canvas>
       </div>
       <div class="pad-tools" role="group" aria-label="Sketch tools">
-        <button id="draw-undo" class="btn btn-ghost" type="button" data-unfinished>Undo</button>
-        <button id="draw-clear" class="btn btn-ghost" type="button" data-unfinished>Clear</button>
-        <button id="draw-sample" class="btn sample-btn" type="button" data-unfinished>Try a sample sketch</button>
-        <button id="draw-upload" class="btn" type="button" data-unfinished>Upload</button>
-        <button id="draw-camera" class="btn" type="button" data-unfinished>Camera</button>
-        <button id="draw-interpret" class="btn btn-primary" type="button" data-unfinished>Interpret</button>
+        <button id="draw-undo" class="btn btn-ghost" type="button">Undo</button>
+        <button id="draw-clear" class="btn btn-ghost" type="button">Clear</button>
+        <button id="draw-sample" class="btn sample-btn" type="button">Try a sample sketch</button>
+        <button id="draw-upload" class="btn" type="button">Upload</button>
+        <button id="draw-camera" class="btn" type="button" aria-controls="camera-preview">Camera</button>
+        <button id="draw-interpret" class="btn btn-primary" type="button">Interpret</button>
         <input id="sketch-upload" type="file" accept="image/*" aria-label="Upload a sketch image" hidden>
       </div>
+      <section id="camera-preview" class="paper" aria-label="Camera preview" hidden>
+        <video id="camera-video" width="640" autoplay muted playsinline aria-label="Live camera preview"></video>
+        <p id="camera-status" role="status">Waiting for the camera…</p>
+        <div class="controls">
+          <button id="camera-capture" class="btn btn-primary" type="button" disabled>Capture</button>
+          <button id="camera-cancel" class="btn btn-ghost" type="button">Cancel</button>
+        </div>
+      </section>
     </section>
 
     <section id="screen-interpret" class="screen" role="tabpanel" aria-labelledby="tab-interpret" tabindex="0" hidden>

@@ -1,3 +1,5 @@
+import { setupDrawPad, toSketch } from './capture.js';
+
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 const toast = document.getElementById('toast');
 const loadingOverlay = document.getElementById('loading-overlay');
@@ -27,6 +29,10 @@ export function setLoading(visible, message = 'Loading…') {
 }
 
 function selectTab(selectedTab) {
+  if (selectedTab.id !== 'tab-draw') {
+    stopCamera();
+    uploadVersion += 1;
+  }
   for (const tab of tabs) {
     const active = tab === selectedTab;
     const panel = document.getElementById(tab.getAttribute('aria-controls'));
@@ -153,4 +159,206 @@ document.getElementById('settings-save').addEventListener('click', saveSettings)
 settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
   saveSettings();
+});
+
+const drawCanvas = document.getElementById('draw-canvas');
+const drawPad = setupDrawPad(drawCanvas);
+const appState = { sketch: null };
+const uploadInput = document.getElementById('sketch-upload');
+const cameraPreview = document.getElementById('camera-preview');
+const cameraVideo = document.getElementById('camera-video');
+const captureButton = document.getElementById('camera-capture');
+const cameraStatus = document.getElementById('camera-status');
+let uploadVersion = 0;
+let cameraVersion = 0;
+let cameraStream = null;
+let cameraWait = null;
+
+function changeDrawing(action) {
+  uploadVersion += 1;
+  appState.sketch = null;
+  action();
+}
+document.getElementById('draw-undo').addEventListener('click', () => changeDrawing(drawPad.undo));
+document.getElementById('draw-clear').addEventListener('click', () => changeDrawing(drawPad.clear));
+document.getElementById('draw-sample').addEventListener('click', () => changeDrawing(drawPad.drawSample));
+drawCanvas.addEventListener('pointerdown', () => {
+  uploadVersion += 1;
+  appState.sketch = null;
+});
+
+function paintSource(source, width, height) {
+  if (!width || !height) throw new Error('This image has no usable dimensions.');
+  const fitted = document.createElement('canvas');
+  fitted.width = drawCanvas.width;
+  fitted.height = drawCanvas.height;
+  const ctx = fitted.getContext('2d', { alpha: false });
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, fitted.width, fitted.height);
+  const scale = Math.min(fitted.width / width, fitted.height / height);
+  ctx.drawImage(source, (fitted.width - width * scale) / 2,
+    (fitted.height - height * scale) / 2, width * scale, height * scale);
+  // Clear discards prior strokes. The next stroke snapshots this new image,
+  // making it the baseline to which drawing edits can be undone. Decode and
+  // fit first so an unreadable source cannot erase the current sketch.
+  changeDrawing(drawPad.clear);
+  drawCanvas.getContext('2d').drawImage(fitted, 0, 0);
+}
+
+async function loadImage(file) {
+  if (!file) return;
+  stopCamera();
+  const version = ++uploadVersion;
+  let objectURL;
+  try {
+    if (!file.type.startsWith('image/')) throw new Error('Please choose an image file, such as PNG or JPEG.');
+    objectURL = URL.createObjectURL(file);
+    const image = new Image();
+    image.src = objectURL;
+    try {
+      await image.decode();
+    } catch {
+      throw new Error('This image could not be read. Try a PNG or JPEG image.');
+    }
+    if (version === uploadVersion) paintSource(image, image.naturalWidth, image.naturalHeight);
+  } catch (error) {
+    if (version === uploadVersion) showToast(error.message, true);
+  } finally {
+    if (objectURL) URL.revokeObjectURL(objectURL);
+  }
+}
+
+document.getElementById('draw-upload').addEventListener('click', () => uploadInput.click());
+uploadInput.addEventListener('change', () => {
+  const file = uploadInput.files[0];
+  uploadInput.value = '';
+  void loadImage(file);
+});
+// Guard the whole page so a missed drop cannot navigate away from the sketch.
+for (const type of ['dragover', 'drop']) {
+  window.addEventListener(type, (event) => {
+    if (Array.from(event.dataTransfer?.types || []).includes('Files')) event.preventDefault();
+  });
+}
+const drawingArea = document.getElementById('drawing-area');
+drawingArea.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+});
+drawingArea.addEventListener('drop', (event) => {
+  event.preventDefault();
+  void loadImage(event.dataTransfer?.files[0]);
+});
+
+function stopCamera() {
+  cameraVersion += 1;
+  cameraWait?.abort();
+  cameraWait = null;
+  for (const track of cameraStream?.getTracks() || []) track.stop();
+  cameraStream = null;
+  cameraVideo.pause();
+  cameraVideo.srcObject = null;
+  cameraPreview.hidden = true;
+  captureButton.disabled = true;
+}
+
+function waitForCamera(signal) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      for (const type of ['loadeddata', 'canplay', 'resize']) cameraVideo.removeEventListener(type, ready);
+      cameraVideo.removeEventListener('error', failed);
+      signal.removeEventListener('abort', cancelled);
+    };
+    const ready = () => {
+      if (cameraVideo.readyState >= 2 && cameraVideo.videoWidth && cameraVideo.videoHeight) {
+        cleanup();
+        resolve();
+      }
+    };
+    const failed = () => { cleanup(); reject(new Error('The camera could not provide a frame. Please try again.')); };
+    const cancelled = () => { cleanup(); reject(new DOMException('Camera cancelled', 'AbortError')); };
+    const timer = setTimeout(failed, 15000);
+    for (const type of ['loadeddata', 'canplay', 'resize']) cameraVideo.addEventListener(type, ready);
+    cameraVideo.addEventListener('error', failed);
+    signal.addEventListener('abort', cancelled, { once: true });
+    if (signal.aborted) cancelled();
+    else ready();
+  });
+}
+
+document.getElementById('draw-camera').addEventListener('click', async () => {
+  stopCamera();
+  uploadVersion += 1;
+  const version = cameraVersion;
+  cameraPreview.hidden = false;
+  cameraStatus.textContent = 'Waiting for the camera…';
+  document.getElementById('camera-cancel').focus();
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is unavailable. Use localhost or HTTPS, or upload an image.');
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    if (version !== cameraVersion) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    cameraStream = stream;
+    cameraVideo.srcObject = stream;
+    cameraWait = new AbortController();
+    await Promise.all([cameraVideo.play(), waitForCamera(cameraWait.signal)]);
+    if (version !== cameraVersion) return;
+    captureButton.disabled = false;
+    cameraStatus.textContent = 'Ready. Position your sketch, then capture.';
+    captureButton.focus();
+  } catch (error) {
+    if (version !== cameraVersion) return;
+    stopCamera();
+    const messages = {
+      NotAllowedError: 'Camera permission was denied. Allow access in your browser or upload an image.',
+      NotFoundError: 'No camera was found. Connect a camera or upload an image.',
+      NotReadableError: 'The camera is unavailable or in use by another app. Try again or upload an image.',
+    };
+    showToast(messages[error.name] || error.message || 'Could not open the camera. Try uploading an image.', true);
+    document.getElementById('draw-camera').focus();
+  }
+});
+
+captureButton.addEventListener('click', () => {
+  try {
+    if (cameraVideo.readyState < 2 || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+      throw new Error('The camera is not ready yet. Please try again.');
+    }
+    paintSource(cameraVideo, cameraVideo.videoWidth, cameraVideo.videoHeight);
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    stopCamera();
+    document.getElementById('draw-camera').focus();
+  }
+});
+document.getElementById('camera-cancel').addEventListener('click', () => {
+  stopCamera();
+  document.getElementById('draw-camera').focus();
+});
+window.addEventListener('pagehide', stopCamera);
+window.addEventListener('beforeunload', stopCamera);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopCamera();
+});
+
+document.getElementById('draw-interpret').addEventListener('click', async () => {
+  stopCamera();
+  uploadVersion += 1;
+  setLoading(true, 'Preparing your sketch…');
+  try {
+    const sketch = await toSketch(drawPad.getCanvas());
+    appState.sketch = sketch;
+    document.getElementById('interpret-canvas').getContext('2d').drawImage(sketch.canvas, 0, 0);
+    console.info({ width: sketch.canvas.width, height: sketch.canvas.height, base64Length: sketch.base64.length });
+    selectTab(document.getElementById('tab-interpret'));
+    document.getElementById('screen-interpret').focus();
+  } catch (error) {
+    showToast(error.message || 'Could not prepare this sketch. Please try again.', true);
+  } finally {
+    setLoading(false);
+  }
 });
