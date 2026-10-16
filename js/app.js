@@ -6,6 +6,7 @@ import { normalizeScene } from './scene.js';
 import { interpretSketch, askLeonardo } from './ai.js';
 
 const tabs = [...document.querySelectorAll('[role="tab"]')];
+const homeScreen = document.getElementById('screen-home');
 const toast = document.getElementById('toast');
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadingText = document.getElementById('loading-text');
@@ -35,12 +36,14 @@ export function setLoading(visible, message = 'Loading…') {
 
 function selectTab(selectedTab) {
   const liveTab = document.getElementById('tab-live');
-  const changed = !selectedTab.classList.contains('is-active');
+  const changed = homeScreen.classList.contains('is-active') || !selectedTab.classList.contains('is-active');
   if (selectedTab !== liveTab && liveTab.classList.contains('is-active')) disposeLive();
   if (selectedTab.id !== 'tab-draw') {
     stopCamera();
     uploadVersion += 1;
   }
+  homeScreen.classList.remove('is-active');
+  homeScreen.hidden = true;
   for (const tab of tabs) {
     const active = tab === selectedTab;
     const panel = document.getElementById(tab.getAttribute('aria-controls'));
@@ -60,6 +63,32 @@ function selectTab(selectedTab) {
   }
   if (changed) window.scrollTo(0, 0);
 }
+
+function showHome() {
+  if (document.getElementById('tab-live').classList.contains('is-active')) disposeLive();
+  stopCamera();
+  uploadVersion += 1;
+  for (const tab of tabs) {
+    tab.classList.remove('is-active');
+    tab.setAttribute('aria-selected', 'false');
+    tab.tabIndex = tab.id === 'tab-gallery' ? 0 : -1;
+    const panel = document.getElementById(tab.getAttribute('aria-controls'));
+    panel.classList.remove('is-active');
+    panel.hidden = true;
+  }
+  homeScreen.hidden = false;
+  homeScreen.classList.add('is-active');
+  window.scrollTo(0, 0);
+}
+
+for (const id of ['brand-home', 'home-link']) {
+  document.getElementById(id).addEventListener('click', (event) => {
+    event.preventDefault();
+    showHome();
+  });
+}
+document.getElementById('home-draw').addEventListener('click', () => selectTab(document.getElementById('tab-draw')));
+document.getElementById('home-gallery').addEventListener('click', () => selectTab(document.getElementById('tab-gallery')));
 
 tabs.forEach((tab, index) => {
   tab.addEventListener('click', () => selectTab(tab));

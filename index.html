@@ -15,22 +15,56 @@
 <body>
   <header class="app-header">
     <div>
-      <h1 class="brand">Da Vinci's Notebook</h1>
+      <h1 class="brand"><a id="brand-home" href="#home">Da Vinci's Notebook</a></h1>
       <p class="tagline">DRAW IT. IT WORKS.</p>
     </div>
-    <button id="settings-open" class="btn btn-ghost" type="button" aria-haspopup="dialog" aria-controls="settings-modal">Settings</button>
+    <div class="header-actions">
+      <a id="home-link" class="header-home" href="#home">Home</a>
+      <button id="settings-open" class="btn btn-ghost" type="button" aria-haspopup="dialog" aria-controls="settings-modal">Settings</button>
+    </div>
   </header>
 
   <nav class="folio-tabs" role="tablist" aria-label="Notebook folios">
     <button id="tab-draw" class="folio-tab" type="button" role="tab" aria-controls="screen-draw" aria-selected="false" tabindex="-1">I · Draw</button>
     <button id="tab-interpret" class="folio-tab" type="button" role="tab" aria-controls="screen-interpret" aria-selected="false" tabindex="-1">II · Interpret</button>
     <button id="tab-live" class="folio-tab" type="button" role="tab" aria-controls="screen-live" aria-selected="false" tabindex="-1">III · Breathe life</button>
-    <button id="tab-gallery" class="folio-tab is-active" type="button" role="tab" aria-controls="screen-gallery" aria-selected="true" tabindex="0">Leonardo's Gallery</button>
+    <button id="tab-gallery" class="folio-tab" type="button" role="tab" aria-controls="screen-gallery" aria-selected="false" tabindex="0">Leonardo's Gallery</button>
   </nav>
 
   <main>
+    <section id="screen-home" class="screen is-active" aria-labelledby="home-title">
+      <span class="marginalia marginalia-left" aria-hidden="true">il moto</span>
+      <span class="marginalia marginalia-right" aria-hidden="true">la forza del peso</span>
+      <div class="home-hero">
+        <p class="section-kicker">A RENAISSANCE PHYSICS LAB · RENAISSANCE BUILDATHON 2026</p>
+        <h2 id="home-title" class="screen-title">Da Vinci's <em>Notebook</em></h2>
+        <p class="home-tagline">Draw it. It works.</p>
+        <p class="home-intro">Leonardo filled his notebooks with machines he never saw move. Draw any machine or physics diagram, and real physics brings it to life.</p>
+        <div class="home-actions">
+          <button id="home-draw" class="btn btn-primary" type="button">Draw your invention</button>
+          <button id="home-gallery" class="btn btn-ghost" type="button">Wake Leonardo's machines</button>
+        </div>
+      </div>
+      <div class="home-steps" aria-label="How it works">
+        <article class="home-step paper">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M8 40c7-1 16-9 22-19L41 5l-16 9C15 20 8 29 8 40Z"/><path d="M8 40c10-11 18-18 28-26M13 35l-5 7m17-28 3 8 8-2"/></svg>
+          <h3>I · Draw</h3><p>Sketch a machine, or bring a page of Leonardo's to the table.</p>
+        </article>
+        <article class="home-step paper">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="21" cy="21" r="12"/><path d="m30 30 11 11M15 21h12M21 15v12"/></svg>
+          <h3>II · Interpret</h3><p>See beams, wheels and pivots emerge from your drawing.</p>
+        </article>
+        <article class="home-step paper">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="M21 5h6l1 5 4 2 5-2 4 5-4 4 1 5 5 3-2 6-5-1-4 3-1 5h-7l-1-5-4-2-5 2-4-5 4-4-1-5-5-3 2-6 5 1 4-3 1-5Z"/><circle cx="24" cy="24" r="7"/></svg>
+          <h3>III · Breathe life</h3><p>Let real physics set the ink in motion.</p>
+        </article>
+      </div>
+      <p class="home-footer">Physics by Matter.js · Vision by Qwen3-VL, on-device via Ollama · Drawings: Leonardo da Vinci, public domain</p>
+    </section>
+
     <section id="screen-draw" class="screen" role="tabpanel" aria-labelledby="tab-draw" tabindex="0" hidden>
-      <h2>Draw</h2>
+      <p class="folio-label">FOLIO I · DRAW</p>
+      <h2 class="screen-title">Draw</h2>
       <div id="drawing-area" class="stage paper">
         <canvas id="draw-canvas" class="draw-pad" width="1000" height="625" aria-label="Sketch canvas">Your sketch will appear here.</canvas>
       </div>
@@ -54,22 +88,25 @@
     </section>
 
     <section id="screen-interpret" class="screen" role="tabpanel" aria-labelledby="tab-interpret" tabindex="0" hidden>
-      <h2>Interpret</h2>
+      <p class="folio-label">FOLIO II · INTERPRET</p>
+      <h2 class="screen-title">Interpret</h2>
       <div class="stage paper">
         <canvas id="interpret-canvas" width="1000" height="625" aria-label="Sketch with interpreted machine outlines">Your interpreted sketch will appear here.</canvas>
       </div>
       <aside class="side-panel" aria-label="Sketch parts">
         <div id="parts-list" class="parts-list"></div>
-        <button id="interpret-reread" class="btn" type="button">Re-read sketch</button>
-        <button id="interpret-live" class="btn btn-primary" type="button" disabled>Breathe life →</button>
+        <div class="interpret-actions">
+          <button id="interpret-reread" class="btn btn-ghost" type="button">Re-read sketch</button>
+          <button id="interpret-live" class="btn btn-primary" type="button" disabled>Breathe life →</button>
+        </div>
       </aside>
     </section>
 
     <section id="screen-live" class="screen" role="tabpanel" aria-labelledby="tab-live" tabindex="0" hidden>
       <div class="live-title-row">
         <div>
-          <p class="section-kicker">III · BREATHE LIFE</p>
-          <h2 id="live-title">Breathe life</h2>
+          <p class="folio-label">FOLIO III · BREATHE LIFE</p>
+          <h2 id="live-title" class="screen-title">Breathe life</h2>
         </div>
         <p class="live-subtitle">· 500 years later, it moves.</p>
       </div>
@@ -121,9 +158,12 @@
       <button id="live-back" class="btn btn-ghost back-button" type="button">← Back to the gallery</button>
     </section>
 
-    <section id="screen-gallery" class="screen is-active" role="tabpanel" aria-labelledby="tab-gallery" tabindex="0">
+    <section id="screen-gallery" class="screen" role="tabpanel" aria-labelledby="tab-gallery" tabindex="0" hidden>
+      <span class="marginalia marginalia-left" aria-hidden="true">il moto</span>
+      <span class="marginalia marginalia-right" aria-hidden="true">la forza del peso</span>
+      <p class="folio-label">FOLIO IV · LEONARDO'S GALLERY</p>
       <p class="section-kicker">FROM THE NOTEBOOKS · c. 1478–1519</p>
-      <h2>Machines that waited 500 years</h2>
+      <h2 class="screen-title">Machines that waited 500 years</h2>
       <p class="gallery-intro">Leonardo imagined them in ink. Choose a folio and watch its parts find motion.</p>
       <div id="gallery-grid" class="gallery-grid"></div>
     </section>
