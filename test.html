@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Da Vinci's Notebook — physics test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat&display=swap" rel="stylesheet">
   <style>
     body { margin: 0; padding: 24px; background: #f1e6cc; color: #3b2a1a; font: 17px Georgia, serif; }
     main { max-width: 1100px; margin: auto; }
@@ -24,6 +27,7 @@
     <button id="play" type="button">Pause</button>
     <button id="reset" type="button">Reset</button>
     <label>Gravity <input id="gravity" type="range" min="0" max="2" step="0.1" value="1"> <span id="gravity-value">1.0</span></label>
+    <label><input id="labels" type="checkbox"> Labels</label>
   </div>
   <div id="stats" aria-live="off">
     <span>Distance: <strong id="distance">0.00</strong> m</span>
@@ -34,6 +38,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <script type="module">
   import { createSim } from './js/physics.js';
+  import { createRenderer } from './js/render.js';
 
   const scene = {
     title: 'Seesaw, pendulum and motor test',
@@ -64,61 +69,12 @@
   };
 
   const canvas = document.getElementById('sim-canvas');
-  const ctx = canvas.getContext('2d');
   const sim = createSim(scene);
+  const renderer = createRenderer(canvas, sim);
   sim.attachMouse(canvas);
   let playing = true;
 
-  const colors = {
-    wood: '#a46a3b', stone: '#76685b', metal: '#747f87',
-    rubber: '#bd6b46', earth: '#8c744e', cloth: '#b9a58b',
-  };
-  const worldPoint = (body, point) => body
-    ? { x: body.position.x + point.x, y: body.position.y + point.y }
-    : point;
-
-  function draw() {
-    ctx.fillStyle = '#fbf5e6';
-    ctx.fillRect(0, 0, 1000, 625);
-    ctx.strokeStyle = '#8b3e1c';
-    ctx.lineWidth = 2;
-    for (const joint of sim.joints) {
-      for (const constraint of joint.constraints) {
-        const a = worldPoint(constraint.bodyA, constraint.pointA);
-        const b = worldPoint(constraint.bodyB, constraint.pointB);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#8b3e1c';
-        ctx.fill();
-      }
-    }
-    for (const body of sim.bodies) {
-      ctx.beginPath();
-      body.vertices.forEach((vertex, index) => {
-        if (index === 0) ctx.moveTo(vertex.x, vertex.y);
-        else ctx.lineTo(vertex.x, vertex.y);
-      });
-      ctx.closePath();
-      ctx.fillStyle = colors[body.dv.material] || colors.wood;
-      ctx.fill();
-      ctx.strokeStyle = '#3b2a1a';
-      ctx.stroke();
-      if (body.dv.id === 'wheel') {
-        ctx.beginPath();
-        ctx.moveTo(body.position.x, body.position.y);
-        ctx.lineTo(body.vertices[0].x, body.vertices[0].y);
-        ctx.stroke();
-      }
-    }
-    ctx.beginPath();
-    ctx.moveTo(0, 625);
-    ctx.lineTo(1000, 625);
-    ctx.strokeStyle = '#8b3e1c';
-    ctx.stroke();
+  function updateStats() {
     const stats = sim.getStats();
     document.getElementById('distance').textContent = stats.distance.toFixed(2);
     document.getElementById('peak').textContent = stats.peak.toFixed(2);
@@ -127,7 +83,8 @@
 
   function frame() {
     if (playing) sim.step();
-    draw();
+    renderer.draw();
+    updateStats();
     requestAnimationFrame(frame);
   }
   document.getElementById('play').addEventListener('click', event => {
@@ -139,6 +96,9 @@
     const value = Number(event.target.value);
     sim.setGravity(value);
     document.getElementById('gravity-value').textContent = value.toFixed(1);
+  });
+  document.getElementById('labels').addEventListener('change', event => {
+    renderer.set('showLabels', event.target.checked);
   });
   frame();
 </script>
